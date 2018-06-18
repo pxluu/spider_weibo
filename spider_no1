@@ -1,0 +1,126 @@
+import os
+import re
+import requests
+import sys
+import traceback
+import time
+
+from datetime import datetime
+from datetime import timedelta
+from lxml import etree
+class Weibo:
+    cookie={"cookie":"ALF=1531705404; SCF=AsYKjsoJib5hkDkTaA4X-iDKXS_kWO-0M93-BZ6FKgeKJBBuKtvRqFd6iL4h_kLNj24h4ixO4r2zA8FM8XA2gNQ.; SUBP=0033WrSXqPxfM725Ws9jqgMF55529P9D9WF3N7WcDMWevjMgi1as.z9N5JpX5K-hUgL.FoeNSo.RS0BpShz2dJLoIpRLxK-LB-BLBKqLxK.L1K.LBKzLxKnLBoMLB-qpeK5t; _T_WM=5eff029f20035e2f5dfa4616555cb204; H5_INDEX_TITLE=%E7%89%B9%E5%88%AB%E5%85%B3%E6%B3%A8; H5_INDEX=0_group_3618501728079445; SUB=_2A252IbIJDeRhGeVJ7VsZ9yrNzz6IHXVV7d5BrDV6PUJbkdAKLVHNkW1NT87L0A_nbj2f6y5dMCZOJ5EW6Ayn5mAi; SUHB=08J7QPmgIyrI6e; SSOLoginState=1529201241"}
+    def __init__(self,user_id,filter=0):
+        self.user_id = user_id
+        self.filter = filter
+        self.username = ''
+        self.weibo_num =0
+        self.weibo_num2 =0
+        self.following = 0
+        self.followers =0
+        self.weibo_content=[]
+        self.weibo_place = []
+        self.publish_time =[]
+        self.up_num = []
+        self.retweet_num=[]
+        self.comment_num = []
+        self.publish_tool = []
+    def get_username(self):
+        url = "https://weibo.cn/%d/info" %(self.user_id)
+        html = requests.get(url,cookies = self.cookie).content
+        selector=etree.HTML(html)
+
+        username = selector.xpath("//title/text()")[-1]
+        print(username)
+        self.username = username[:3]
+        print("用户名是："+self.username)
+    def get_user_info(self):
+        url = "https://weibo.cn/u/%d?filter=%d&page=1" % (
+            self.user_id, self.filter)
+        html = requests.get(url,cookies=self.cookie).content
+        selector = etree.HTML(html)
+        #获取微博用户的微博数量
+        webnums = selector.xpath("//div[@class='tip2']/span[@class='tc']/text()")[0]
+        pattern = r'\d+'
+        webnum= re.findall(pattern,webnums)[0]
+        self.weibo_num = int(webnum)
+        print(self.weibo_num)
+        #获取微博用户的关注数
+        str_gz = selector.xpath("//div[@class= 'tip2']/a/text()")[0]
+        self.following = re.findall(pattern,str_gz)[0]
+        print("关注的人数是"+str(self.following))
+
+        #获取微博用户的粉丝数
+        str_fs = selector.xpath("//div[@class= 'tip2']/a/text()")[1]
+        self.followers = int(re.findall(pattern,str_fs)[0])
+        print("粉丝数量是："+str(self.followers))
+        #获取微博内容
+        # 获取用户微博内容及对应的发布时间、点赞数、转发数、评论数
+
+    def get_weibo_info(self):
+        url1 = "https://weibo.cn/%d?filter=%d&page=1" %(self.user_id,self.filter)
+        weibo_info = requests.get(url1,cookies = self.cookie)
+        html = requests.get(url1,cookies=self.cookie).content
+        selector = etree.HTML(html)
+        #判断微博总页数
+        if selector.xpath("//input[@name = 'mp']")==[]:
+            page_num =1
+        else :
+            page_num =int(selector.xpath("//input[@name='mp']")[0].attrib["value"])
+
+            print(page_num)
+        for page in range(1,page_num+1):
+            # url2 = "https://weibo.cn/%d?filter=%d&page=%d" %(self.user_id,self.filter,page)
+            url3 = "https://weibo.cn/%d?filter=%d&page=%d" %(self.user_id,self.filter,page)
+            html3= requests.get(url3,cookies = self.cookie).content
+            selector3 = etree.HTML(html3)
+            info= selector3.xpath("//div[@class = 'c']")
+            for i in range(0,len(info)-2):
+                str_t = info[i].xpath("div/span[@class = 'ctt']")
+                web_content = str_t[0].xpath(("string(.)"))
+                print(web_content)
+
+                self.weibo_content.append(web_content[:-1])
+                print   ("-------------")
+
+                print(len(self.weibo_content))
+                time.sleep(1)
+
+    def write_txt(self):
+        file_dir = os.path.split(os.path.realpath(__file__))[0] + os.sep + "weibo"
+        print(file_dir)
+        if os.path.isdir(file_dir):
+            os.mkdir(file_dir)
+        filepath = file_dir+".txt"
+        f = open(filepath,'wb',encoding="utf-8")
+        for i in range(0,len(self.weibo_content)-1):
+            f.write(self.weibo_content[i])
+        f.close()
+
+
+    def start(self):
+        self.get_username()
+        self.get_user_info()
+        self.get_weibo_info()
+        self.write_txt()
+
+
+def main():
+    #崔永元
+    # user_id =1496852380
+    #袁立
+    # user_id =1195300800
+    #张国立
+    user_id=2000749772
+    # user_id =6556227755
+    filter =0
+    wb = Weibo(user_id)
+    wb.start()
+    print("____________________________")
+    print("用户名是："+wb.username)
+    print("微博的数量是："+str(wb.weibo_num))
+    print("微博的关注是："+wb.following)
+    print("微博的粉丝 有："+str(wb.followers))
+
+if __name__ == "__main__":
+    main()
